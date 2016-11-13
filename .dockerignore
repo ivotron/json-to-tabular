@@ -1,0 +1,4 @@
+*.sw?
+README.md
+.git/
+.ropeproject/
