@@ -44,7 +44,6 @@ def get_kv_path_and_files(path):
     concatenated in a single string. E.g. `a/b/c/d` generates an `{a: b, c: d}`
     map.
     """
-    # TODO assumes that all files are in the same key-value paths
     for path, _, files in os.walk(path):
         for f in files:
             if not f.endswith(".json"):
@@ -69,7 +68,6 @@ def get_kv_path_and_files(path):
 def print_header(spec):
     json_header = [s.keys()[0] for s in spec]
     for kv_path, _ in get_kv_path_and_files("./"):
-        # TODO intersect json_header with kv_path.keys() to detect name clashes
         print(",".join(kv_path.keys() + json_header))
         return
 
