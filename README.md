@@ -1,20 +1,13 @@
 # Performance Data
 
-A simple schema to represent performance data. This repository 
-contains utilities to manipulate files that use this format. Example:
+Tools to generate tabular format files from a collection of JSON and 
+YAML files. Many benchmarking tools generate results in JSON or YAML 
+formats, but many of the analysis and visualization tools work better 
+with tabular formats (e.g. CSV, R/Pandas dataframes, etc.).
+
+Example:
 
 ```javascript
-{
-  "benchmark": "foo",
-  "tests": [
-    {
-      "name": "bar",
-      "lower_is_better": <true|false>,
-      "result": <number|list|map>
-    },
-    ...
-  ]
-}
 ```
 
 # Utilities
@@ -66,8 +59,18 @@ hierarchy:
     │                   └── out.json
 ```
 
+Given a list of attributes to extract from the set of `out.json` files 
+in this hierarchy, for example:
+
+```yaml
+- benchmark: 'fio'
+- job: '.jobs | .[] | .jobname'
+- read_iops: .jobs | .[] | .read.iops
+- write_iops: .jobs | .[] | .write.iops
+```
+
 This utility produces the following CSV file:
 
 ```csv
-repetition, limits, mode, benchmark, test, lower_is_better, result
+repetition, limits, mode, benchmark, job, result
 ```
