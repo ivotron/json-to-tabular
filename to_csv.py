@@ -2,6 +2,7 @@
 
 import argparse
 import collections
+import json
 import os
 import os.path
 import subprocess
@@ -9,33 +10,9 @@ import yaml
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument(
-        '--csv-spec', dest='spec', default="csv_spec.yml", help="Spec file.")
-
-
-def check_spec(spec):
-    for s in spec:
-        if not isinstance(s, dict):
-            raise Exception("Expecting a list of 1-item dictionaries")
-        if len(s) != 1:
-            raise Exception("Expecting dictionary with one key; got " + s)
-
-
-def get_jq_expression(spec):
-    exps = []
-
-    for s in spec:
-        exp = s.values()[0]
-
-        # check if a literal was given, so we double-quote it
-        if '.' not in exp:
-            exp = '["{}"]'.format(exp)
-        else:
-            exp = '[{}]'.format(exp)
-
-        exps.append(exp)
-
-    return "'" + (" + ".join(exps)) + " | @csv'"
+parser.add_argument('--json-header', required=True, help="Header.")
+parser.add_argument('--jqexp', required=True, help="JQ expression.")
+parser.add_argument('path', help="Path to files to extract CSV from.")
 
 
 def get_kv_path_and_files(path):
@@ -46,7 +23,9 @@ def get_kv_path_and_files(path):
     """
     for path, _, files in os.walk(path):
         for f in files:
-            if not f.endswith(".json"):
+            is_json = f.endswith(".json")
+            is_yaml = f.endswith(".yaml") or f.endswith(".yml")
+            if not is_json and not is_yaml:
                 continue
 
             kv_path = path.split("/")
@@ -65,24 +44,29 @@ def get_kv_path_and_files(path):
             yield kv, path+"/"+f
 
 
-def print_header(spec):
-    json_header = [s.keys()[0] for s in spec]
-    for kv_path, _ in get_kv_path_and_files("./"):
-        print(",".join(kv_path.keys() + json_header))
+def print_header():
+    for kv_path, _ in get_kv_path_and_files(args.path):
+        print(",".join(kv_path.keys() + args.json_header.split(",")))
         return
 
 
-def get_records_for_file(fname, jq_expression):
-    value_list = subprocess.check_output(
-                     "jq -r {} {}".format(jq_expression, fname), shell=True)
+def get_records_for_file(fname):
+
+    if not fname.endswith(".json"):
+        # if yaml, convert to JSON first
+        with open(fname) as ymlfile:
+            with open('/tmp/file.json', 'w') as jsonfile:
+                json.dump(yaml.load(ymlfile), jsonfile)
+        fname = '/tmp/file.json'
+
+    cmd = "jq -r '{} | @csv' {}".format(args.jqexp, fname)
+    value_list = subprocess.check_output(cmd, shell=True)
     return value_list.splitlines()
 
 
-def print_records(spec):
-    jq_expression = get_jq_expression(spec)
-
-    for kv_path, f in get_kv_path_and_files("./"):
-        for r in get_records_for_file(f, jq_expression):
+def print_records():
+    for kv_path, f in get_kv_path_and_files(args.path):
+        for r in get_records_for_file(f):
             if len(kv_path.values()) > 0:
                 print(",".join(kv_path.values()) + "," + r)
             else:
@@ -91,10 +75,5 @@ def print_records(spec):
 
 args = parser.parse_args()
 
-with open(args.spec) as f:
-    spec = yaml.load(f)
-
-check_spec(spec)
-
-print_header(spec)
-print_records(spec)
+print_header()
+print_records()
