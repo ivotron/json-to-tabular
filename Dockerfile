@@ -1,4 +1,4 @@
-FROM ivotron/jq
+FROM ivotron/jq:1.5
 
 RUN apk --no-cache add python py-yaml
 
