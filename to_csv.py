@@ -10,9 +10,14 @@ import yaml
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--json-header', required=True, help="Header.")
-parser.add_argument('--jqexp', required=True, help="JQ expression.")
-parser.add_argument('path', help="Path to files to extract CSV from.")
+parser.add_argument('--print-header', action='store_true',
+                    help="Print header.", default=False)
+parser.add_argument('--json-header', required=False,
+                    help="Header from JSON.")
+parser.add_argument('--jqexp', required=True,
+                    help="JQ expression.")
+parser.add_argument('path',
+                    help="Path to files to extract CSV from.")
 
 
 def get_kv_path_and_files(path):
@@ -75,5 +80,7 @@ def print_records():
 
 args = parser.parse_args()
 
-print_header()
+if args.print_header:
+    print_header()
+
 print_records()
