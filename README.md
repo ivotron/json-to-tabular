@@ -1,4 +1,4 @@
-# JSON to tabular format
+# JSON/YAML to tabular
 
 Tools to generate tabular format files from a collection of 
 semi-structured files. Benchmarking tools generate results in JSON or 
@@ -124,9 +124,9 @@ syntax](https://stedolan.github.io/jq/tutorial/)) from the set of
 
 ```
 to_csv.py \
-  --json-header 'benchmark,job,read_iops,write_iops'
-  --jq-exp '. | .jobs | .[] | ["fio", .jobname, .read.iops, .write.iops ]'
-  path/to/hierarchy
+  --header 'benchmark,job,read_iops,write_iops' \
+  --jq-exp '. | .jobs | .[] | ["fio", .jobname, .read.iops, .write.iops ]' \
+  /path/to/hierarchy
 ```
 
 This utility produces the following CSV file:

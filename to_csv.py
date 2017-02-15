@@ -7,17 +7,39 @@ import os
 import os.path
 import subprocess
 import yaml
+import re
 
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--print-header', action='store_true',
-                    help="Print header.", default=False)
-parser.add_argument('--json-header', required=False,
-                    help="Header from JSON.")
-parser.add_argument('--jqexp', required=True,
-                    help="JQ expression.")
+                    help="Print header.", default=True)
+parser.add_argument('--header', required=False,
+                    help=("Header associated to files. This header is a suffix "
+                          "of the header obtained from the KV path"))
+parser.add_argument('--jqexp',
+                    help="JQ expression used against JSON files.")
+parser.add_argument('--shexp',
+                    help="command used to extract rows from plain text files.")
+parser.add_argument('--txtregex',
+                    help=("regular expression to filter plain text files. "
+                          "Matching files are piped into shexp"))
 parser.add_argument('path',
                     help="Path to files to extract CSV from.")
+
+
+def get_file_type(f):
+    if f.endswith(".csv"):
+        return "csv"
+    if f.endswith(".json"):
+        return "json"
+    if f.endswith(".yaml") or f.endswith(".yml"):
+        return "yaml"
+
+    # filename needs to match given regex, otherwise ignore
+    if args.shexp and args.txtregex and re.compile(args.txtregex).match(f):
+        return "txt"
+    else:
+        return "ignore"
 
 
 def get_kv_path_and_files(path):
@@ -28,9 +50,8 @@ def get_kv_path_and_files(path):
     """
     for path, _, files in os.walk(path):
         for f in files:
-            is_json = f.endswith(".json")
-            is_yaml = f.endswith(".yaml") or f.endswith(".yml")
-            if not is_json and not is_yaml:
+
+            if get_file_type(f) == "ignore":
                 continue
 
             kv_path = path.split("/")
@@ -51,22 +72,34 @@ def get_kv_path_and_files(path):
 
 def print_header():
     for kv_path, _ in get_kv_path_and_files(args.path):
-        print(",".join(kv_path.keys() + args.json_header.split(",")))
+        print(",".join(kv_path.keys() + args.header.split(",")))
         return
 
 
 def get_records_for_file(fname):
 
-    if not fname.endswith(".json"):
-        # if yaml, convert to JSON first
-        with open(fname) as ymlfile:
-            with open('/tmp/file.json', 'w') as jsonfile:
-                json.dump(yaml.load(ymlfile), jsonfile)
-        fname = '/tmp/file.json'
+    ftype = get_file_type(fname)
 
-    cmd = "jq -r '{} | @csv' {}".format(args.jqexp, fname)
-    value_list = subprocess.check_output(cmd, shell=True)
-    return value_list.splitlines()
+    if ftype == "csv":
+        # TODO we assume CSVs have no header; we should make it optional
+        with open(fname, 'r') as csvfile:
+            return csvfile.readlines()
+
+    if ftype == "txt":
+        # apply shexp to file
+        cmd = "cat {} | {}".format(fname, args.shexp)
+
+    if ftype == "yaml" or ftype == "json":
+        if ftype == "yaml":
+            # convert to JSON
+            with open(fname) as ymlfile:
+                with open('/tmp/file.json', 'w') as jsonfile:
+                    json.dump(yaml.load(ymlfile), jsonfile)
+            fname = '/tmp/file.json'
+
+        cmd = "jq -r '{} | @csv' {}".format(args.jqexp, fname)
+
+    return subprocess.check_output(cmd, shell=True).splitlines()
 
 
 def print_records():
