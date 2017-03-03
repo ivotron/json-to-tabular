@@ -1,6 +1,6 @@
 FROM ivotron/jq:1.5
 
-RUN apk --no-cache add python py-yaml
+RUN apk --no-cache add python bc py-yaml
 
 ADD . /root/
 
