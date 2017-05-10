@@ -3,11 +3,12 @@
 import argparse
 import collections
 import json
-import os
-import os.path
 import subprocess
 import yaml
 import re
+
+from os import walk
+from os.path import basename, splitext
 
 parser = argparse.ArgumentParser()
 
@@ -17,14 +18,14 @@ parser.add_argument('--header', required=False,
                     help=("Header associated to files. This header is a suffix "
                           "of the header obtained from the KV path"))
 parser.add_argument('--jqexp',
-                    help="JQ expression used against JSON files.")
+                    help="JQ expression used against JSON/YAML files.")
 parser.add_argument('--shexp',
                     help=("A shell expression (one or more piped commands) "
-                          "used to extract rows from plain text files. A text "
-                          "file is any non-tabular format (csv, json or yaml."))
+                          "used to extract rows from plain text files. If not "
+                          "given, the entire content of the plain text file "
+                          "is printed."))
 parser.add_argument('--filefilter',
-                    help=("Regex expression used to filter files. By default "
-                          "all .csv .json .yaml/.yml files are processed."))
+                    help=("Regex expression used to filter files."))
 parser.add_argument('path',
                     help="Path to files to extract CSV from.")
 
@@ -53,7 +54,7 @@ def get_kv_path_and_files(path):
     concatenated in a single string. E.g. `a/b/c/d` generates an `{a: b, c: d}`
     map.
     """
-    for path, _, files in os.walk(path):
+    for path, _, files in walk(path):
         for f in files:
 
             if get_file_type(f, path) == "ignore":
@@ -98,14 +99,16 @@ def get_records_for_file(fname):
             cmd += " | {}".format(args.shexp)
 
     if ftype == "yaml" or ftype == "json":
+        jsonfname = fname
         if ftype == "yaml":
             # convert to JSON
             with open(fname) as ymlfile:
                 with open('/tmp/file.json', 'w') as jsonfile:
                     json.dump(yaml.load(ymlfile), jsonfile)
-            fname = '/tmp/file.json'
+            jsonfname = '/tmp/file.json'
 
-        cmd = "jq -r '{} | @csv' {}".format(args.jqexp, fname)
+        fnamearg = '--arg FILENAME {}'.format(splitext(basename(fname))[0])
+        cmd = "jq {} -r '{} | @csv' {}".format(fnamearg, args.jqexp, jsonfname)
 
     return subprocess.check_output(cmd, shell=True).splitlines()
 
